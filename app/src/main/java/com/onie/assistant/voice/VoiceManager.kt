@@ -6,72 +6,121 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import com.onie.assistant.core.ONIEBrain
+import com.onie.assistant.core.ONIEState
 import java.util.Locale
 
 class VoiceManager(
     private val context: Context,
-    private val onStateChanged: (VoiceState) -> Unit
+    private val brain: ONIEBrain,
+    private val onStateChanged: (ONIEState) -> Unit
 ) : TextToSpeech.OnInitListener {
 
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
 
     init {
-        tts = TextToSpeech(context, this)
+        tts = TextToSpeech(context, this).apply {
+            setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+
+                override fun onStart(utteranceId: String?) = Unit
+
+                override fun onDone(utteranceId: String?) {
+                    onStateChanged(ONIEState.IDLE)
+                }
+
+                override fun onError(utteranceId: String?) {
+                    onStateChanged(ONIEState.ERROR)
+                }
+            })
+        }
+
         recognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
             setRecognitionListener(object : RecognitionListener {
+
                 override fun onReadyForSpeech(params: android.os.Bundle?) {
-                    onStateChanged(VoiceState.LISTENING)
+                    onStateChanged(ONIEState.LISTENING)
                 }
 
                 override fun onBeginningOfSpeech() {
-                    onStateChanged(VoiceState.LISTENING)
+                    onStateChanged(ONIEState.LISTENING)
                 }
 
                 override fun onRmsChanged(rmsdB: Float) = Unit
+
                 override fun onBufferReceived(buffer: ByteArray?) = Unit
 
                 override fun onEndOfSpeech() {
-                    onStateChanged(VoiceState.THINKING)
+                    onStateChanged(ONIEState.THINKING)
                 }
 
                 override fun onError(error: Int) {
-                    onStateChanged(VoiceState.ERROR)
+                    onStateChanged(ONIEState.ERROR)
                 }
 
                 override fun onResults(results: android.os.Bundle?) {
                     val text = results
-                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        ?.getStringArrayList(
+                            SpeechRecognizer.RESULTS_RECOGNITION
+                        )
                         ?.firstOrNull()
-                        ?: return
 
-                    onStateChanged(VoiceState.THINKING)
+                    if (text.isNullOrBlank()) {
+                        onStateChanged(ONIEState.ERROR)
+                        return
+                    }
 
-                    val response = com.onie.assistant.core.ONIEBrain().respond(text)
+                    onStateChanged(ONIEState.THINKING)
+
+                    val response = brain.respond(text)
                     speak(response)
                 }
 
-                override fun onPartialResults(partialResults: android.os.Bundle?) = Unit
-                override fun onEvent(eventType: Int, params: android.os.Bundle?) = Unit
+                override fun onPartialResults(
+                    partialResults: android.os.Bundle?
+                ) = Unit
+
+                override fun onEvent(
+                    eventType: Int,
+                    params: android.os.Bundle?
+                ) = Unit
             })
         }
     }
 
     fun startListening() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        onStateChanged(ONIEState.LISTENING)
+
+        val intent = Intent(
+            RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+        ).apply {
             putExtra(
                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
             )
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE,
+                Locale.getDefault()
+            )
+            putExtra(
+                RecognizerIntent.EXTRA_PARTIAL_RESULTS,
+                true
+            )
         }
+
         recognizer?.startListening(intent)
     }
 
     private fun speak(text: String) {
-        onStateChanged(VoiceState.SPEAKING)
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ONIE_RESPONSE")
+        onStateChanged(ONIEState.SPEAKING)
+
+        tts?.speak(
+            text,
+            TextToSpeech.QUEUE_FLUSH,
+            null,
+            "ONIE_RESPONSE"
+        )
     }
 
     override fun onInit(status: Int) {
@@ -84,15 +133,9 @@ class VoiceManager(
     fun destroy() {
         recognizer?.destroy()
         recognizer = null
+
         tts?.stop()
         tts?.shutdown()
         tts = null
     }
-}
-
-enum class VoiceState {
-    LISTENING,
-    THINKING,
-    SPEAKING,
-    ERROR
 }
