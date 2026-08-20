@@ -40,6 +40,15 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".voice.ONIERecognitionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_SPEECH_RECOGNITION_SERVICE">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>

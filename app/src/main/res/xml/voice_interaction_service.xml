@@ -2,5 +2,6 @@
 <voice-interaction-service
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:sessionService="com.onie.assistant.voice.ONIESessionService"
+    android:recognitionService="com.onie.assistant.voice.ONIERecognitionService"
     android:supportsAssist="true"
     android:supportsLocalInteraction="true" />
