@@ -25,6 +25,10 @@
             <intent-filter>
                 <action android:name="android.service.voice.VoiceInteractionService" />
             </intent-filter>
+
+            <meta-data
+                android:name="android.service.voice"
+                android:resource="@xml/voice_interaction_service" />
         </service>
 
         <service
