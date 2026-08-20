@@ -21,7 +21,7 @@ class ONIESession(
     override fun onRequestCommand(
         request: CommandRequest
     ) {
-        val command = request.extras?.getString("command")
+        val command = request.command
 
         if (command.isNullOrBlank()) {
             request.cancel()
