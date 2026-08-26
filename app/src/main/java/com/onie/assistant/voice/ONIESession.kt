@@ -11,11 +11,12 @@ class ONIESession(
     service: ONIESessionService
 ) : VoiceInteractionSession(service), TextToSpeech.OnInitListener {
 
-    private val brain = ONIEBrain()
+    private lateinit var brain: ONIEBrain
     private var tts: TextToSpeech? = null
 
     override fun onCreate() {
         super.onCreate()
+        brain = ONIEBrain(context)
 
         tts = TextToSpeech(context, this).apply {
             setOnUtteranceProgressListener(

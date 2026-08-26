@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val brain = ONIEBrain()
+        val brain = ONIEBrain(this)
 
         voiceManager = VoiceManager(
             context = this,
