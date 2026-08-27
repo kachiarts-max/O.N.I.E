@@ -5,17 +5,27 @@ import android.service.voice.VoiceInteractionSession
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import com.onie.assistant.core.ONIEBrain
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class ONIESession(
     service: ONIESessionService
 ) : VoiceInteractionSession(service), TextToSpeech.OnInitListener {
 
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main.immediate
+    )
+
     private lateinit var brain: ONIEBrain
     private var tts: TextToSpeech? = null
 
     override fun onCreate() {
         super.onCreate()
+
         brain = ONIEBrain(context)
 
         tts = TextToSpeech(context, this).apply {
@@ -54,15 +64,29 @@ class ONIESession(
             return
         }
 
-        val response = brain.respond(command)
+        scope.launch {
+            try {
+                val response = brain.respond(command)
 
-        request.sendResult(
-            Bundle().apply {
-                putString("response", response)
+                request.sendResult(
+                    Bundle().apply {
+                        putString("response", response)
+                    }
+                )
+
+                speak(response)
+
+            } catch (e: Exception) {
+                request.sendResult(
+                    Bundle().apply {
+                        putString(
+                            "response",
+                            "I'm having trouble processing that request."
+                        )
+                    }
+                )
             }
-        )
-
-        speak(response)
+        }
     }
 
     private fun speak(text: String) {
@@ -82,9 +106,12 @@ class ONIESession(
     }
 
     override fun onDestroy() {
+        scope.cancel()
+
         tts?.stop()
         tts?.shutdown()
         tts = null
+
         super.onDestroy()
     }
 }

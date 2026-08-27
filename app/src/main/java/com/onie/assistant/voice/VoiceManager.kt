@@ -9,6 +9,11 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import com.onie.assistant.core.ONIEBrain
 import com.onie.assistant.core.ONIEState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class VoiceManager(
@@ -16,6 +21,10 @@ class VoiceManager(
     private val brain: ONIEBrain,
     private val onStateChanged: (ONIEState) -> Unit
 ) : TextToSpeech.OnInitListener {
+
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main.immediate
+    )
 
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
@@ -60,6 +69,7 @@ class VoiceManager(
                 }
 
                 override fun onResults(results: android.os.Bundle?) {
+
                     val text = results
                         ?.getStringArrayList(
                             SpeechRecognizer.RESULTS_RECOGNITION
@@ -73,8 +83,10 @@ class VoiceManager(
 
                     onStateChanged(ONIEState.THINKING)
 
-                    val response = brain.respond(text)
-                    speak(response)
+                    scope.launch {
+                        val response = brain.respond(text)
+                        speak(response)
+                    }
                 }
 
                 override fun onPartialResults(
@@ -137,5 +149,7 @@ class VoiceManager(
         tts?.stop()
         tts?.shutdown()
         tts = null
+
+        scope.cancel()
     }
 }
