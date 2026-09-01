@@ -1,6 +1,7 @@
 package com.onie.assistant.voice
 
 import android.content.Context
+import android.util.Log
 import android.content.Intent
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -82,10 +83,57 @@ class VoiceManager(
                     }
 
                     onStateChanged(ONIEState.THINKING)
+                    Log.e("ONIE_TRACE", "Speech recognition produced text: $text")
 
                     scope.launch {
-                        val response = brain.respond(text)
-                        speak(response)
+                        try {
+                            Log.e("ONIE_TRACE", "STEP 1: Sending text to ONIEBrain: $text")
+
+                            val response = try {
+                                Log.e("ONIE_TRACE", "STEP 2: Calling brain.respond()")
+                                val result = brain.respond(text)
+                                Log.e("ONIE_TRACE", "STEP 2 SUCCESS: ONIEBrain returned: $result")
+                                result
+                            } catch (e: Throwable) {
+                                Log.e("ONIE_TRACE", "BRAIN FAILED", e)
+                                val cause = e.cause
+                                val detail = buildString {
+                                    append(e.javaClass.simpleName)
+                                    append(". ")
+                                    append(e.message ?: "No message")
+                                    if (cause != null) {
+                                        append(". Cause: ")
+                                        append(cause.javaClass.simpleName)
+                                        append(". ")
+                                        append(cause.message ?: "No cause message")
+                                    }
+                                }
+
+                                speak("ONIE brain error. $detail")
+                                return@launch
+                            }
+
+                            try {
+                                Log.e("ONIE_TRACE", "STEP 3: Calling speak()")
+                                speak(response)
+                                Log.e("ONIE_TRACE", "STEP 3 SUCCESS: speak() called")
+                            } catch (e: Throwable) {
+                                Log.e("ONIE_TRACE", "TTS FAILED", e)
+                                onStateChanged(ONIEState.ERROR)
+                            }
+                        } catch (e: Throwable) {
+                            Log.e("ONIE_TRACE", "STEP ERROR: brain/respond/speak failed", e)
+
+                            val errorMessage =
+                                e.message ?: e.javaClass.simpleName
+
+                            speak(
+                                "ONIE debug error. " +
+                                e.javaClass.simpleName +
+                                ". " +
+                                errorMessage
+                            )
+                        }
                     }
                 }
 
