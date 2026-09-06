@@ -6,19 +6,22 @@ on:
       - main
       - dev
       - feature/v0.2-assistant-mode
+
   pull_request:
     branches:
       - main
       - dev
       - feature/v0.2-assistant-mode
+
   workflow_dispatch:
 
 jobs:
   build:
+    name: Build ONIE APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout ONIE
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -33,16 +36,22 @@ jobs:
       - name: Install Android SDK 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.6.1"
+      - name: Create local.properties
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "gemini.api.key=$GEMINI_API_KEY" >> local.properties
 
-      - name: Build debug APK
-        run: gradle assembleDebug
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
 
-      - name: Upload APK
+      - name: Build ONIE debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Upload ONIE APK
         uses: actions/upload-artifact@v4
         with:
           name: ONIE-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
